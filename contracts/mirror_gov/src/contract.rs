@@ -1,6 +1,7 @@
 use crate::msg::{
     ConfigResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, MigrateMsg, PollResponse,
-    PollsResponse, QueryMsg, StakerResponse, StateResponse, VotersResponse, VotersResponseItem,
+    PollsResponse, QueryMsg, StakerResponse, StateResponse, VoterInfoResponse, VotersResponse,
+    VotersResponseItem,
 };
 use crate::querier::load_token_balance;
 use crate::state::{
@@ -389,7 +390,7 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
         link,
         execute_data,
         deposit_amount,
-        total_balance_at_end_poll: None,
+        total_share_at_end_poll: None,
     };
 
     poll_store(&mut deps.storage).save(&poll_id.to_be_bytes(), &new_poll)?;
@@ -445,13 +446,14 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
 
     let no = a_poll.no_votes.u128();
     let yes = a_poll.yes_votes.u128();
-
-    let tallied_weight = yes + no;
-    let staked_weight = (load_token_balance(
+    let total_balance = (load_token_balance(
         &deps,
         &deps.api.human_address(&config.mirror_token)?,
         &state.contract_addr,
     )? - state.total_deposit)?;
+
+    let tallied_weight = yes + no;
+    let staked_weight = total_balance.clone();
 
     let quorum = Decimal::from_ratio(tallied_weight, staked_weight);
     if tallied_weight == 0 || quorum < config.quorum {
@@ -491,7 +493,7 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
 
     // Update poll status
     a_poll.status = poll_status;
-    a_poll.total_balance_at_end_poll = Some(staked_weight);
+    a_poll.total_share_at_end_poll = Some(total_balance);
     poll_store(&mut deps.storage).save(&poll_id.to_be_bytes(), &a_poll)?;
 
     // Unlock all voter tokens
@@ -614,7 +616,7 @@ fn unlock_tokens<S: Storage, A: Api, Q: Querier>(
     let mut token_manager = bank_read(&deps.storage).load(voter_key).unwrap();
 
     // unlock entails removing the mapped poll_id, retaining the rest
-    token_manager.locked_balance.retain(|(k, _)| k != &poll_id);
+    token_manager.locked_share.retain(|(k, _)| k != &poll_id);
     bank_store(&mut deps.storage).save(voter_key, &token_manager)?;
     Ok(HandleResponse::default())
 }
@@ -627,9 +629,9 @@ fn locked_balance<S: Storage, A: Api, Q: Querier>(
     let voter_key = &voter.as_slice();
     let token_manager = bank_read(&deps.storage).load(voter_key).unwrap();
     token_manager
-        .locked_balance
+        .locked_share
         .iter()
-        .map(|(_, v)| v.balance.u128())
+        .map(|(_, v)| v.share.u128())
         .max()
         .unwrap_or_default()
 }
@@ -691,11 +693,11 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
 
     let vote_info = VoterInfo {
         vote,
-        balance: amount,
+        share: amount,
     };
     token_manager.participated_polls.push(poll_id);
     token_manager
-        .locked_balance
+        .locked_share
         .push((poll_id, vote_info.clone()));
     bank_store(&mut deps.storage).save(key, &token_manager)?;
 
@@ -826,7 +828,7 @@ fn query_poll<S: Storage, A: Api, Q: Querier>(
         },
         yes_votes: poll.yes_votes,
         no_votes: poll.no_votes,
-        total_balance_at_end_poll: poll.total_balance_at_end_poll,
+        total_balance_at_end_poll: poll.total_share_at_end_poll,
     })
 }
 
@@ -859,7 +861,7 @@ fn query_polls<S: Storage, A: Api, Q: Querier>(
                 },
                 yes_votes: poll.yes_votes,
                 no_votes: poll.no_votes,
-                total_balance_at_end_poll: poll.total_balance_at_end_poll,
+                total_balance_at_end_poll: poll.total_share_at_end_poll,
             })
         })
         .collect();
@@ -892,7 +894,7 @@ fn query_voters<S: Storage, A: Api, Q: Querier>(
             Ok(VotersResponseItem {
                 voter: deps.api.human_address(&voter_info.0)?,
                 vote: voter_info.1.vote.clone(),
-                balance: voter_info.1.balance,
+                balance: voter_info.1.share,
             })
         })
         .collect();
@@ -928,7 +930,19 @@ fn query_staker<S: Storage, A: Api, Q: Querier>(
             Uint128::zero()
         },
         share: token_manager.share,
-        locked_balance: token_manager.locked_balance,
+        locked_balance: token_manager
+            .locked_share
+            .iter()
+            .map(|v| {
+                (
+                    v.0,
+                    VoterInfoResponse {
+                        vote: v.1.vote.clone(),
+                        balance: v.1.share,
+                    },
+                )
+            })
+            .collect(),
     })
 }
 

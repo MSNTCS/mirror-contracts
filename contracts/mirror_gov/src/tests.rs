@@ -4,9 +4,9 @@ mod tests {
     use crate::mock_querier::{mock_dependencies, WasmMockQuerier};
     use crate::msg::{
         ConfigResponse, Cw20HookMsg, ExecuteMsg, HandleMsg, InitMsg, PollResponse, PollsResponse,
-        QueryMsg, StakerResponse, VotersResponse, VotersResponseItem,
+        QueryMsg, StakerResponse, VoterInfoResponse, VotersResponse, VotersResponseItem,
     };
-    use crate::state::{config_read, state_read, Config, PollStatus, State, VoteOption, VoterInfo};
+    use crate::state::{config_read, state_read, Config, PollStatus, State, VoteOption};
     use cosmwasm_std::testing::{mock_env, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
     use cosmwasm_std::{
         coins, from_binary, log, to_binary, Api, Coin, CosmosMsg, Decimal, Env, Extern,
@@ -1271,7 +1271,7 @@ mod tests {
                 share: Uint128(11u128),
                 locked_balance: vec![(
                     1u64,
-                    VoterInfo {
+                    VoterInfoResponse {
                         vote: VoteOption::Yes,
                         balance: Uint128::from(amount),
                     }

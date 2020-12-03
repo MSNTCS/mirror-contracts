@@ -1,4 +1,4 @@
-use crate::state::{PollStatus, VoteOption, VoterInfo};
+use crate::state::{PollStatus, VoteOption};
 use cosmwasm_std::{Binary, Decimal, HumanAddr, Uint128};
 use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
@@ -137,11 +137,17 @@ pub struct PollCountResponse {
     pub poll_count: u64,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct VoterInfoResponse {
+    pub vote: VoteOption,
+    pub balance: Uint128,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
 pub struct StakerResponse {
     pub balance: Uint128,
     pub share: Uint128,
-    pub locked_balance: Vec<(u64, VoterInfo)>,
+    pub locked_balance: Vec<(u64, VoterInfoResponse)>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
