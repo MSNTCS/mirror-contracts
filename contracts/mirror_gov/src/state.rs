@@ -14,9 +14,9 @@ use crate::msg::OrderBy;
 static KEY_CONFIG: &[u8] = b"config";
 static KEY_STATE: &[u8] = b"state";
 
-static PREFIX_POLL_VOTER: &[u8] = b"poll_voter";
-static PREFIX_POLL: &[u8] = b"poll";
-static PREFIX_BANK: &[u8] = b"bank";
+static PREFIX_POLL_VOTER: &[u8] = b"poll_voter_v2";
+static PREFIX_POLL: &[u8] = b"poll_v2";
+static PREFIX_BANK: &[u8] = b"bank_v2";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
